@@ -1,0 +1,24 @@
+# Go
+bin/
+dist/
+build/
+*.exe
+*.test
+coverage.out
+*.prof
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

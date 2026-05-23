@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,8 +10,10 @@ import (
 	"airdanapi-be/internal/config"
 	"airdanapi-be/internal/handler"
 	"airdanapi-be/internal/middleware"
+	"airdanapi-be/internal/repository"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -21,7 +24,12 @@ func main() {
 	zerolog.TimeFieldFormat = time.RFC3339
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
-	router := NewRouter(cfg)
+	db := openOptionalDB(cfg)
+	if db != nil {
+		defer db.Close()
+	}
+
+	router := NewRouter(cfg, db)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,
@@ -39,12 +47,12 @@ func main() {
 	}
 }
 
-func NewRouter(cfg config.Config) http.Handler {
+func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 	r := chi.NewRouter()
 	r.Use(recoverer)
 	r.Use(middleware.RequestID)
 
-	health := handler.NewHealthHandler(cfg)
+	health := handler.NewHealthHandler(cfg, db)
 	r.Get("/health", health.Health)
 	r.Get("/ready", health.Ready)
 
@@ -53,6 +61,27 @@ func NewRouter(cfg config.Config) http.Handler {
 	})
 
 	return r
+}
+
+func openOptionalDB(cfg config.Config) *sqlx.DB {
+	if !cfg.DB.Configured() {
+		log.Warn().Msg("database config incomplete; readiness will not check database")
+		return nil
+	}
+
+	db, err := repository.OpenMySQL(cfg.DB)
+	if err != nil {
+		log.Warn().Err(err).Msg("database connection not opened; readiness will not check database")
+		return nil
+	}
+
+	if err := repository.Ping(context.Background(), db); err != nil {
+		_ = db.Close()
+		log.Warn().Err(err).Msg("database ping failed; readiness will not check database")
+		return nil
+	}
+
+	return db
 }
 
 func recoverer(next http.Handler) http.Handler {

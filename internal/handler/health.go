@@ -4,15 +4,19 @@ import (
 	"net/http"
 
 	"airdanapi-be/internal/config"
+	"airdanapi-be/internal/repository"
 	"airdanapi-be/internal/response"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type HealthHandler struct {
 	cfg config.Config
+	db  *sqlx.DB
 }
 
-func NewHealthHandler(cfg config.Config) HealthHandler {
-	return HealthHandler{cfg: cfg}
+func NewHealthHandler(cfg config.Config, db *sqlx.DB) HealthHandler {
+	return HealthHandler{cfg: cfg, db: db}
 }
 
 func (h HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +29,13 @@ func (h HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
+	if h.db != nil {
+		if err := repository.Ping(r.Context(), h.db); err != nil {
+			WriteError(w, r, http.StatusServiceUnavailable, "DATABASE_UNAVAILABLE", "database ping failed")
+			return
+		}
+	}
+
 	WriteSuccess(w, r, http.StatusOK, map[string]string{
 		"status": "ready",
 	})

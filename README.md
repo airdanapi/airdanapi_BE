@@ -2,7 +2,7 @@
 
 Backend API Gateway / Integrator untuk Ekosistem Ekonomi UMKM. Service ini menjadi fondasi Sprint 0 untuk routing, validasi, logging, fee integrasi, dan console API pada sprint berikutnya.
 
-## Status Sprint 0
+## Status Sprint 1
 
 Fitur yang sudah tersedia:
 
@@ -14,10 +14,12 @@ Fitur yang sudah tersedia:
 - `GET /health`.
 - `GET /ready`.
 - Unit test dasar untuk health dan readiness endpoint.
+- SQL schema manual untuk MySQL.
+- Domain model dan repository dasar untuk tabel utama Gateway.
+- Seed route registry minimal.
 
-Belum termasuk Sprint 0:
+Belum termasuk Sprint 1:
 
-- Database dan migration.
 - JWT validation.
 - Routing proxy.
 - Audit logging ke MySQL.
@@ -58,6 +60,45 @@ Copy-Item .env.example .env
 | `APP_PORT` | `8080` | Port HTTP server. |
 | `APP_NAME` | `airdanapi-integrator` | Nama aplikasi pada response health. |
 | `APP_VERSION` | `0.1.0` | Versi aplikasi pada response health. |
+| `DB_HOST` | `localhost` | Host MySQL. |
+| `DB_PORT` | `3306` | Port MySQL. |
+| `DB_USER` | `root` | User MySQL. |
+| `DB_PASS` | kosong | Password MySQL. |
+| `DB_NAME` | `airdanapi_gateway` | Nama database aplikasi. |
+| `DB_PARSE_TIME` | `true` | Mengaktifkan parsing kolom waktu MySQL. |
+| `DB_LOC` | `Local` | Zona waktu driver MySQL untuk kolom waktu. |
+
+## Setup Database Manual
+
+Sprint 1 memakai import SQL manual, bukan migration tool otomatis.
+
+Buat database:
+
+```bash
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS airdanapi_gateway;"
+```
+
+Jika MySQL memakai password:
+
+```bash
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS airdanapi_gateway;"
+```
+
+Import schema dan seed:
+
+```bash
+mysql -u root airdanapi_gateway < migrations/001_init_schema.up.sql
+mysql -u root airdanapi_gateway < migrations/002_seed_routes.up.sql
+```
+
+Rollback manual:
+
+```bash
+mysql -u root airdanapi_gateway < migrations/002_seed_routes.down.sql
+mysql -u root airdanapi_gateway < migrations/001_init_schema.down.sql
+```
+
+Urutan file penting: jalankan `001_init_schema.up.sql` sebelum `002_seed_routes.up.sql`.
 
 ## Menjalankan Aplikasi
 
@@ -132,6 +173,26 @@ Atau:
 make test
 ```
 
+Integration test repository MySQL hanya berjalan jika `INTEGRATION_DB_TEST=1`.
+
+Buat database test dan import SQL:
+
+```bash
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS airdanapi_gateway_test;"
+mysql -u root airdanapi_gateway_test < migrations/001_init_schema.up.sql
+mysql -u root airdanapi_gateway_test < migrations/002_seed_routes.up.sql
+```
+
+Jalankan integration test di Windows PowerShell:
+
+```powershell
+$env:INTEGRATION_DB_TEST="1"
+$env:DB_NAME="airdanapi_gateway_test"
+go test ./...
+```
+
+Jika `INTEGRATION_DB_TEST` tidak di-set, integration test akan otomatis skip.
+
 ## Struktur Project
 
 ```text
@@ -140,18 +201,18 @@ internal/config/     Environment config loader
 internal/handler/    HTTP handlers
 internal/middleware/ HTTP middleware
 internal/response/   JSON response envelope
-internal/domain/     Domain model placeholder untuk sprint berikutnya
-internal/repository/ Repository placeholder untuk sprint berikutnya
+internal/domain/     Domain model Gateway
+internal/repository/ MySQL connection dan repository dasar
 internal/service/    Service layer placeholder untuk sprint berikutnya
 internal/store/      In-memory store placeholder untuk sprint berikutnya
-migrations/          SQL migration placeholder untuk Sprint 1
+migrations/          SQL schema dan seed manual
 ```
 
 ## Catatan Penting
 
 - Jangan commit file `.env`.
 - Jangan menambahkan Redis atau Docker tanpa perubahan scope eksplisit.
+- Sprint 1 memakai import SQL manual; tidak ada `cmd/migrate`.
 - Semua transaksi moneter pada sprint berikutnya harus tetap melalui SmartBank.
 - Gateway tidak boleh melakukan mutasi saldo langsung.
 - Response API harus tetap memakai envelope standar.
-

@@ -15,7 +15,7 @@ func TestHealthEndpoint(t *testing.T) {
 		Port:    "8080",
 		Name:    "airdanapi-integrator",
 		Version: "0.1.0",
-	})
+	}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
@@ -42,7 +42,7 @@ func TestReadyEndpoint(t *testing.T) {
 		Port:    "8080",
 		Name:    "airdanapi-integrator",
 		Version: "0.1.0",
-	})
+	}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
 	rec := httptest.NewRecorder()

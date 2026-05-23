@@ -102,6 +102,19 @@ Urutan file penting: jalankan `001_init_schema.up.sql` sebelum `002_seed_routes.
 
 ## Menjalankan Aplikasi
 
+Untuk menjalankan backend di lokal dari workspace tugas besar:
+
+```powershell
+cd "D:\Kuli Ah S4\RPL_II new\Tugas_Besar\airdanapi_BE"
+go mod tidy
+Copy-Item .env.example .env
+go run ./cmd/server
+```
+
+Jika file `.env` sudah ada, langkah `Copy-Item .env.example .env` tidak perlu diulang.
+
+Backend tetap bisa berjalan tanpa MySQL aktif. Jika MySQL belum siap, aplikasi akan menampilkan warning dan endpoint `/ready` tidak melakukan ping database.
+
 ```bash
 go run ./cmd/server
 ```
@@ -117,6 +130,26 @@ Server default berjalan di:
 ```text
 http://localhost:8080
 ```
+
+Verifikasi cepat:
+
+```powershell
+Invoke-RestMethod http://localhost:8080/health
+Invoke-RestMethod http://localhost:8080/ready
+```
+
+Jika ingin menjalankan backend dengan database lokal, siapkan MySQL lebih dulu:
+
+```powershell
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS airdanapi_gateway;"
+mysql -u root airdanapi_gateway < migrations/001_init_schema.up.sql
+mysql -u root airdanapi_gateway < migrations/002_seed_routes.up.sql
+go run ./cmd/server
+```
+
+Jika MySQL memakai password, gunakan `mysql -u root -p ...`.
+
+Backend dan frontend dijalankan di terminal terpisah. Setelah backend aktif di `http://localhost:8080`, jalankan frontend dari folder `airdanapi_FE`.
 
 ## Endpoint Sprint 0
 

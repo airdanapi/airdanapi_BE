@@ -29,6 +29,13 @@ type GatewayFeeFilter struct {
 	PerPage   int
 }
 
+type GatewayFeeSummary struct {
+	RevenueTotal int64 `db:"revenue_total" json:"revenue_total"`
+	PendingCount int64 `db:"pending_count" json:"pending_count"`
+	FailedCount  int64 `db:"failed_count" json:"failed_count"`
+	SuccessCount int64 `db:"success_count" json:"success_count"`
+}
+
 type MySQLGatewayFeeRepository struct {
 	db *sqlx.DB
 }
@@ -189,4 +196,20 @@ func (r MySQLGatewayFeeRepository) ListDueRetries(ctx context.Context, now time.
 	}
 
 	return fees, nil
+}
+
+func (r MySQLGatewayFeeRepository) Summary(ctx context.Context) (GatewayFeeSummary, error) {
+	const query = `
+		SELECT
+			COALESCE(SUM(CASE WHEN status = 'SUCCESS' THEN fee_amount ELSE 0 END), 0) AS revenue_total,
+			COALESCE(SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pending_count,
+			COALESCE(SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed_count,
+			COALESCE(SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END), 0) AS success_count
+		FROM gateway_fees`
+
+	var summary GatewayFeeSummary
+	if err := r.db.GetContext(ctx, &summary, query); err != nil {
+		return GatewayFeeSummary{}, err
+	}
+	return summary, nil
 }

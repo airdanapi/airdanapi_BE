@@ -27,8 +27,8 @@ type RequestLogFilter struct {
 }
 
 type DashboardSummary struct {
-	TotalRequests  int64   `db:"total_requests" json:"total_requests"`
-	ErrorRate      float64 `db:"error_rate" json:"error_rate"`
+	TotalRequests int64   `db:"total_requests" json:"total_requests"`
+	ErrorRate     float64 `db:"error_rate" json:"error_rate"`
 	AverageLatency float64 `db:"average_latency_ms" json:"average_latency_ms"`
 }
 

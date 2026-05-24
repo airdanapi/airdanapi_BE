@@ -12,6 +12,7 @@ import (
 
 type OperatorRepository interface {
 	FindByEmail(ctx context.Context, email string) (domain.Operator, error)
+	UpdateLastLogin(ctx context.Context, id int64) error
 }
 
 type MySQLOperatorRepository struct {
@@ -38,4 +39,10 @@ func (r MySQLOperatorRepository) FindByEmail(ctx context.Context, email string) 
 	}
 
 	return operator, nil
+}
+
+func (r MySQLOperatorRepository) UpdateLastLogin(ctx context.Context, id int64) error {
+	const query = `UPDATE operators SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
 }

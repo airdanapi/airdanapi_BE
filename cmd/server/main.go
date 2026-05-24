@@ -58,11 +58,24 @@ func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 	var blacklistRepo repository.JWTBlacklistRepository
 	var routeRepo repository.RouteRepository
 	var feeRepo repository.GatewayFeeRepository
+	var operatorRepo repository.OperatorRepository
+	var consoleRouteRepo handler.ConsoleRouteRepository
+	var consoleLogRepo handler.DashboardLogRepository
+	var consoleFeeRepo handler.ConsoleFeeRepository
 	if db != nil {
-		logRepo = repository.NewRequestLogRepository(db)
+		mysqlLogRepo := repository.NewRequestLogRepository(db)
+		mysqlRouteRepo := repository.NewRouteRepository(db)
+		mysqlFeeRepo := repository.NewGatewayFeeRepository(db)
+		mysqlOperatorRepo := repository.NewOperatorRepository(db)
+
+		logRepo = mysqlLogRepo
 		blacklistRepo = repository.NewJWTBlacklistRepository(db)
-		routeRepo = repository.NewRouteRepository(db)
-		feeRepo = repository.NewGatewayFeeRepository(db)
+		routeRepo = mysqlRouteRepo
+		feeRepo = mysqlFeeRepo
+		operatorRepo = mysqlOperatorRepo
+		consoleRouteRepo = mysqlRouteRepo
+		consoleLogRepo = mysqlLogRepo
+		consoleFeeRepo = mysqlFeeRepo
 	}
 
 	r.Use(middleware.LifecycleLogger(logRepo))
@@ -75,6 +88,7 @@ func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 	feeService := service.NewFeeService(cfg.Fee, feeRepo, smartBankClient)
 	feeService.StartRetryWorker(context.Background())
 	protectionService := service.NewProtectionService(cfg.Protection)
+	consoleSessions := service.NewConsoleSessionStore(8 * time.Hour)
 
 	health := handler.NewHealthHandler(cfg, db)
 	r.Get("/health", health.Health)
@@ -84,6 +98,13 @@ func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 	routing := handler.NewRoutingHandler(routeRepo, &feeService, protectionService)
 	fees := handler.NewFeeHandler(feeRepo, feeService)
 	logging := handler.NewLoggingHandler(logRepo)
+	consoleAuth := handler.NewConsoleAuthHandler(operatorRepo, consoleSessions)
+	consoleDashboard := handler.NewConsoleDashboardHandler(consoleLogRepo, consoleFeeRepo)
+	consoleRoutes := handler.NewConsoleRoutesHandler(consoleRouteRepo)
+	consoleHealth := handler.NewConsoleHealthHandler(consoleRouteRepo)
+	consoleFees := handler.NewConsoleFeesHandler(consoleFeeRepo)
+
+	r.Post("/console/auth/login", consoleAuth.Login)
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.AuthRequired(authService))
 		protected.Post("/integrator/validasi_request", validation.ValidateRequest)
@@ -96,6 +117,20 @@ func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 		protected.MethodFunc(http.MethodPut, "/api/v1/{service}/{feature}", routing.Transparent)
 		protected.MethodFunc(http.MethodPatch, "/api/v1/{service}/{feature}", routing.Transparent)
 		protected.MethodFunc(http.MethodDelete, "/api/v1/{service}/{feature}", routing.Transparent)
+	})
+	r.Group(func(console chi.Router) {
+		console.Use(middleware.ConsoleAuthRequired(consoleSessions))
+		console.Post("/console/auth/logout", consoleAuth.Logout)
+		console.Get("/console/auth/me", consoleAuth.Me)
+		console.Get("/console/dashboard/summary", consoleDashboard.Summary)
+		console.Get("/console/dashboard/throughput", consoleDashboard.Throughput)
+		console.Get("/console/routes", consoleRoutes.List)
+		console.Post("/console/routes", consoleRoutes.Create)
+		console.Put("/console/routes/{id}", consoleRoutes.Update)
+		console.Patch("/console/routes/{id}/toggle", consoleRoutes.Toggle)
+		console.Get("/console/services/health", consoleHealth.List)
+		console.Get("/console/fees/summary", consoleFees.Summary)
+		console.Get("/console/fees/pending", consoleFees.Pending)
 	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

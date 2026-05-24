@@ -8,6 +8,7 @@ import (
 )
 
 const requestIDHeader = "X-Request-Id"
+const requestIDContextKey = "request_id"
 
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -17,9 +18,18 @@ func RequestID(next http.Handler) http.Handler {
 		}
 
 		w.Header().Set(requestIDHeader, requestID)
-		ctx := context.WithValue(r.Context(), "request_id", requestID)
+		ctx := context.WithValue(r.Context(), requestIDContextKey, requestID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func RequestIDFromContext(ctx context.Context) string {
+	requestID, ok := ctx.Value(requestIDContextKey).(string)
+	if !ok {
+		return ""
+	}
+
+	return requestID
 }
 
 func newRequestID() string {

@@ -67,7 +67,12 @@ func TestRouteRepositoryIntegration(t *testing.T) {
 		t.Fatalf("list active routes: %v", err)
 	}
 	if len(routes) < 6 {
-		t.Fatalf("expected at least 6 seeded routes, got %d", len(routes))
+		t.Fatalf("expected seeded routes, got %d", len(routes))
+	}
+
+	_, err = repo.FindActiveByServiceFeatureMethod(context.Background(), "marketplace", "browse_produk", "GET")
+	if err != nil {
+		t.Fatalf("find csv marketplace browse route: %v", err)
 	}
 
 	_, err = repo.FindActiveByServiceFeatureMethod(context.Background(), "missing", "route", "GET")

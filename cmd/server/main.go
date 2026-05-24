@@ -11,6 +11,7 @@ import (
 	"airdanapi-be/internal/handler"
 	"airdanapi-be/internal/middleware"
 	"airdanapi-be/internal/repository"
+	"airdanapi-be/internal/service"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -51,10 +52,51 @@ func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 	r := chi.NewRouter()
 	r.Use(recoverer)
 	r.Use(middleware.RequestID)
+	r.Use(middleware.CORS(cfg.CORS.AllowedOrigins))
+
+	var logRepo repository.RequestLogRepository
+	var blacklistRepo repository.JWTBlacklistRepository
+	var routeRepo repository.RouteRepository
+	var feeRepo repository.GatewayFeeRepository
+	if db != nil {
+		logRepo = repository.NewRequestLogRepository(db)
+		blacklistRepo = repository.NewJWTBlacklistRepository(db)
+		routeRepo = repository.NewRouteRepository(db)
+		feeRepo = repository.NewGatewayFeeRepository(db)
+	}
+
+	r.Use(middleware.LifecycleLogger(logRepo))
+
+	authService, err := service.NewAuthService(cfg.Auth, blacklistRepo)
+	if err != nil {
+		log.Fatal().Err(err).Msg("jwt auth service could not be initialized")
+	}
+	smartBankClient := service.NewSmartBankClient(cfg.SmartBank)
+	feeService := service.NewFeeService(cfg.Fee, feeRepo, smartBankClient)
+	feeService.StartRetryWorker(context.Background())
+	protectionService := service.NewProtectionService(cfg.Protection)
 
 	health := handler.NewHealthHandler(cfg, db)
 	r.Get("/health", health.Health)
 	r.Get("/ready", health.Ready)
+
+	validation := handler.NewValidationHandler(routeRepo)
+	routing := handler.NewRoutingHandler(routeRepo, &feeService, protectionService)
+	fees := handler.NewFeeHandler(feeRepo, feeService)
+	logging := handler.NewLoggingHandler(logRepo)
+	r.Group(func(protected chi.Router) {
+		protected.Use(middleware.AuthRequired(authService))
+		protected.Post("/integrator/validasi_request", validation.ValidateRequest)
+		protected.Post("/integrator/routing_api", routing.Envelope)
+		protected.Get("/integrator/logging", logging.List)
+		protected.Get("/integrator/biaya_layanan_integrasi", fees.List)
+		protected.Post("/integrator/biaya_layanan_integrasi/retry/{id}", fees.Retry)
+		protected.MethodFunc(http.MethodGet, "/api/v1/{service}/{feature}", routing.Transparent)
+		protected.MethodFunc(http.MethodPost, "/api/v1/{service}/{feature}", routing.Transparent)
+		protected.MethodFunc(http.MethodPut, "/api/v1/{service}/{feature}", routing.Transparent)
+		protected.MethodFunc(http.MethodPatch, "/api/v1/{service}/{feature}", routing.Transparent)
+		protected.MethodFunc(http.MethodDelete, "/api/v1/{service}/{feature}", routing.Transparent)
+	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		handler.WriteError(w, r, http.StatusNotFound, "ROUTE_NOT_FOUND", fmt.Sprintf("route %s %s was not found", r.Method, r.URL.Path))

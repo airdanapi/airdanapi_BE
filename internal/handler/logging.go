@@ -37,7 +37,7 @@ func (h LoggingHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	WriteSuccess(w, r, http.StatusOK, map[string]interface{}{
-		"items":    logs,
+		"items":    requestLogsToResponse(logs),
 		"page":     filter.Page,
 		"per_page": filter.PerPage,
 	})

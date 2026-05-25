@@ -44,7 +44,7 @@ func (h FeeHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	WriteSuccess(w, r, http.StatusOK, map[string]interface{}{
-		"items":    fees,
+		"items":    gatewayFeesToResponse(fees),
 		"page":     intQuery(r, "page", 1),
 		"per_page": intQuery(r, "per_page", 20),
 	})
@@ -81,7 +81,7 @@ func (h FeeHandler) Retry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteSuccess(w, r, http.StatusOK, updated)
+	WriteSuccess(w, r, http.StatusOK, gatewayFeeToResponse(updated))
 }
 
 func hasRequiredScope(w http.ResponseWriter, r *http.Request, requiredScope string) bool {

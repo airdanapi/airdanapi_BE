@@ -73,6 +73,13 @@ func TestLoggingListSuccess(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("expected one log item, got %+v", items)
 	}
+	item := items[0].(map[string]any)
+	if item["request_id"] != "req-1" {
+		t.Fatalf("expected snake_case request_id, got %+v", item)
+	}
+	if _, exists := item["RequestID"]; exists {
+		t.Fatalf("response must not expose Go field RequestID: %+v", item)
+	}
 }
 
 func TestLoggingListInvalidDate(t *testing.T) {

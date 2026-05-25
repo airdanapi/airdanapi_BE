@@ -67,6 +67,16 @@ func TestFeeListSuccess(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("expected one fee item, got %+v", items)
 	}
+	item := items[0].(map[string]any)
+	if item["request_id"] != "req-1" {
+		t.Fatalf("expected snake_case request_id, got %+v", item)
+	}
+	if item["transaction_amount"] != float64(100000) {
+		t.Fatalf("expected snake_case transaction_amount, got %+v", item)
+	}
+	if _, exists := item["FeeAmount"]; exists {
+		t.Fatalf("response must not expose Go field FeeAmount: %+v", item)
+	}
 }
 
 func TestFeeManualRetrySuccess(t *testing.T) {

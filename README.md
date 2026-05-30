@@ -2,6 +2,8 @@
 
 Backend API Gateway / Integrator untuk Ekosistem Ekonomi UMKM. Service ini menjadi fondasi Sprint 0 untuk routing, validasi, logging, fee integrasi, dan console API pada sprint berikutnya.
 
+Dokumen akhir proyek tersedia di [DOKUMENTASI_AKHIR.md](DOKUMENTASI_AKHIR.md). Panduan demo tersedia di [DEMO.md](DEMO.md).
+
 ## Status Sprint 1
 
 Fitur yang sudah tersedia:
@@ -264,6 +266,16 @@ Error auth utama:
 
 Audit logging Sprint 2 mencatat lifecycle `STARTED` lalu `COMPLETED` atau `FAILED` ke tabel `request_logs` jika database tersedia. Jika database tidak tersedia, request tetap diproses dan kegagalan insert log dicatat sebagai warning.
 
+**Dokumentasi lengkap proyek ini ada di [DOKUMENTASI_AKHIR.md](./DOKUMENTASI_AKHIR.md)**.
+
+## Pengujian (Test Scenarios)
+Terdapat 15 skenario pengujian utama (GW-T01 - GW-T15) untuk memverifikasi fungsionalitas Gateway.
+Untuk menjalankan seluruh test (dengan data race detector):
+```bash
+go test -race -v -run TestGW ./internal/handler/...
+go test -race ./...
+```
+
 ## Endpoint Sprint 3
 
 ### Transparent Routing
@@ -444,6 +456,38 @@ make test
 ```
 
 Integration test repository MySQL hanya berjalan jika `INTEGRATION_DB_TEST=1`.
+
+### Test Scenarios Sprint 8
+
+Sprint 8 menambahkan test terpadu `internal/handler/gateway_scenarios_test.go` untuk 15 skenario GW-T01 sampai GW-T15:
+
+- `GW-T01` read request sukses.
+- `GW-T02` transactional request plus fee.
+- `GW-T03` missing JWT.
+- `GW-T04` expired JWT.
+- `GW-T05` revoked token.
+- `GW-T06` unknown route.
+- `GW-T07` rate limit exceeded.
+- `GW-T08` idempotency replay.
+- `GW-T09` idempotency conflict.
+- `GW-T10` downstream timeout.
+- `GW-T11` circuit open.
+- `GW-T12` fee charge failed.
+- `GW-T13` scope denied.
+- `GW-T14` log query.
+- `GW-T15` concurrent calls.
+
+Jalankan test skenario:
+
+```bash
+go test -race -v -run TestGW ./internal/handler/...
+```
+
+Jalankan seluruh backend test dengan race detector:
+
+```bash
+go test -race ./...
+```
 
 Buat database test dan import SQL:
 

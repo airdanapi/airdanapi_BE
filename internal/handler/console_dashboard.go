@@ -4,12 +4,15 @@ import (
 	"context"
 	"net/http"
 
+	"airdanapi-be/internal/domain"
 	"airdanapi-be/internal/repository"
 )
 
 type DashboardLogRepository interface {
 	DashboardSummary(ctx context.Context) (repository.DashboardSummary, error)
 	Throughput(ctx context.Context) ([]repository.ThroughputPoint, error)
+	TopServices(ctx context.Context, limit int) ([]repository.TopServicePoint, error)
+	RecentErrors(ctx context.Context, limit int) ([]domain.RequestLog, error)
 }
 
 type DashboardFeeRepository interface {
@@ -65,4 +68,34 @@ func (h ConsoleDashboardHandler) Throughput(w http.ResponseWriter, r *http.Reque
 	}
 
 	WriteSuccess(w, r, http.StatusOK, map[string]interface{}{"items": points})
+}
+
+func (h ConsoleDashboardHandler) TopServices(w http.ResponseWriter, r *http.Request) {
+	if h.logs == nil {
+		WriteError(w, r, http.StatusServiceUnavailable, "DATABASE_UNAVAILABLE", "request log repository is unavailable")
+		return
+	}
+
+	points, err := h.logs.TopServices(r.Context(), 5)
+	if err != nil {
+		WriteError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "dashboard top services could not be queried")
+		return
+	}
+
+	WriteSuccess(w, r, http.StatusOK, map[string]interface{}{"items": points})
+}
+
+func (h ConsoleDashboardHandler) RecentErrors(w http.ResponseWriter, r *http.Request) {
+	if h.logs == nil {
+		WriteError(w, r, http.StatusServiceUnavailable, "DATABASE_UNAVAILABLE", "request log repository is unavailable")
+		return
+	}
+
+	logs, err := h.logs.RecentErrors(r.Context(), 5)
+	if err != nil {
+		WriteError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "dashboard recent errors could not be queried")
+		return
+	}
+
+	WriteSuccess(w, r, http.StatusOK, map[string]interface{}{"items": requestLogsToResponse(logs)})
 }

@@ -76,6 +76,12 @@ func TestCalculateFee(t *testing.T) {
 	if got := CalculateFee(101, 0.005); got != 1 {
 		t.Fatalf("expected half-up rounded fee 1, got %d", got)
 	}
+	if got := CalculateFee(99, 0.005); got != 0 {
+		t.Fatalf("expected rounded down fee 0, got %d", got)
+	}
+	if got := CalculateFee(0, 0.005); got != 0 {
+		t.Fatalf("expected fee 0, got %d", got)
+	}
 }
 
 func TestFeeServiceChargeSuccess(t *testing.T) {

@@ -103,6 +103,7 @@ func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 	consoleRoutes := handler.NewConsoleRoutesHandler(consoleRouteRepo)
 	consoleHealth := handler.NewConsoleHealthHandler(consoleRouteRepo)
 	consoleFees := handler.NewConsoleFeesHandler(consoleFeeRepo)
+	consoleAdmin := handler.NewConsoleAdminHandler(cfg)
 
 	r.Post("/console/auth/login", consoleAuth.Login)
 	r.Group(func(protected chi.Router) {
@@ -124,6 +125,8 @@ func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 		console.Get("/console/auth/me", consoleAuth.Me)
 		console.Get("/console/dashboard/summary", consoleDashboard.Summary)
 		console.Get("/console/dashboard/throughput", consoleDashboard.Throughput)
+		console.Get("/console/dashboard/top-services", consoleDashboard.TopServices)
+		console.Get("/console/dashboard/recent-errors", consoleDashboard.RecentErrors)
 		console.Get("/console/routes", consoleRoutes.List)
 		console.Post("/console/routes", consoleRoutes.Create)
 		console.Put("/console/routes/{id}", consoleRoutes.Update)
@@ -131,6 +134,11 @@ func NewRouter(cfg config.Config, db *sqlx.DB) http.Handler {
 		console.Get("/console/services/health", consoleHealth.List)
 		console.Get("/console/fees/summary", consoleFees.Summary)
 		console.Get("/console/fees/pending", consoleFees.Pending)
+		console.Get("/console/security/summary", consoleAdmin.SecuritySummary)
+		console.Get("/console/config/defaults", consoleAdmin.ConfigDefaults)
+		console.Get("/console/logs", logging.List)
+		console.Get("/console/fees", fees.List)
+		console.Post("/console/fees/retry/{id}", fees.Retry)
 	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

@@ -37,6 +37,11 @@ type ThroughputPoint struct {
 	Count  int64  `db:"count" json:"count"`
 }
 
+type TopServicePoint struct {
+	ServiceName  string `db:"service_name" json:"service_name"`
+	RequestCount int64  `db:"request_count" json:"request_count"`
+}
+
 type MySQLRequestLogRepository struct {
 	db *sqlx.DB
 }
@@ -163,4 +168,47 @@ func (r MySQLRequestLogRepository) Throughput(ctx context.Context) ([]Throughput
 		return nil, err
 	}
 	return points, nil
+}
+
+func (r MySQLRequestLogRepository) TopServices(ctx context.Context, limit int) ([]TopServicePoint, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	const query = `
+		SELECT target_app AS service_name, COUNT(*) AS request_count
+		FROM request_logs
+		WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+		  AND lifecycle IN ('COMPLETED', 'FAILED')
+		GROUP BY target_app
+		ORDER BY request_count DESC, target_app ASC
+		LIMIT ?`
+
+	var points []TopServicePoint
+	if err := r.db.SelectContext(ctx, &points, query, limit); err != nil {
+		return nil, err
+	}
+	return points, nil
+}
+
+func (r MySQLRequestLogRepository) RecentErrors(ctx context.Context, limit int) ([]domain.RequestLog, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	const query = `
+		SELECT id, request_id, parent_request_id, user_id, source_app, target_app, endpoint,
+		       method, status_code, latency_ms, ip_address, request_hash, response_hash,
+		       lifecycle, error_message, created_at
+		FROM request_logs
+		WHERE status_code >= 400
+		  AND lifecycle IN ('COMPLETED', 'FAILED')
+		ORDER BY created_at DESC, id DESC
+		LIMIT ?`
+
+	var logs []domain.RequestLog
+	if err := r.db.SelectContext(ctx, &logs, query, limit); err != nil {
+		return nil, err
+	}
+	return logs, nil
 }

@@ -112,6 +112,27 @@ func TestFeeManualRetrySuccess(t *testing.T) {
 	}
 }
 
+func TestFeeCalculationRounding(t *testing.T) {
+	cases := []struct {
+		name   string
+		amount int64
+		rate   float64
+		want   int64
+	}{
+		{name: "below_one_rounds_to_zero", amount: 99, rate: 0.005, want: 0},
+		{name: "half_rounds_to_one", amount: 200, rate: 0.005, want: 1},
+		{name: "zero_amount", amount: 0, rate: 0.005, want: 0},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := service.CalculateFee(tc.amount, tc.rate); got != tc.want {
+				t.Fatalf("CalculateFee(%d, %f) = %d, want %d", tc.amount, tc.rate, got, tc.want)
+			}
+		})
+	}
+}
+
 func feeTestHandler(t *testing.T, feeRepo *routingFeeRepository, feeService service.FeeService) http.Handler {
 	t.Helper()
 

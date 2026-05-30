@@ -85,6 +85,10 @@ func (h FeeHandler) Retry(w http.ResponseWriter, r *http.Request) {
 }
 
 func hasRequiredScope(w http.ResponseWriter, r *http.Request, requiredScope string) bool {
+	if _, ok := middleware.ConsoleSessionFromContext(r.Context()); ok {
+		return true
+	}
+
 	principal, ok := middleware.PrincipalFromContext(r.Context())
 	if !ok {
 		WriteError(w, r, http.StatusUnauthorized, "AUTH_INVALID_TOKEN", "jwt principal is missing")
